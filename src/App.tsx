@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { PromptInput } from './components/PromptInput';
 import { ComponentCard } from './components/ComponentCard';
 import { useComponentGenerator } from './hooks/useComponentGenerator';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { usePromptHistory } from './hooks/usePromptHistory';
 import type { Provider } from './types';
 import './App.css';
 
@@ -10,10 +12,29 @@ const PROVIDER_CONFIG = {
   google: { label: 'Google', placeholder: 'AIza...' },
 } as const;
 
+function reviveProvider(raw: unknown): Provider {
+  return raw === 'anthropic' || raw === 'google' ? raw : 'google';
+}
+
+function reviveApiKeys(raw: unknown): Record<Provider, string> {
+  const keys = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    anthropic: typeof keys.anthropic === 'string' ? keys.anthropic : '',
+    google: typeof keys.google === 'string' ? keys.google : '',
+  };
+}
+
 function App() {
-  const [apiKey, setApiKey] = useState('');
+  // 프로바이더마다 키 형식이 달라, 전환 시 잘못된 키가 전송되지 않도록 키를 따로 보관한다.
+  const [apiKeys, setApiKeys] = useLocalStorage<Record<Provider, string>>(
+    'rcg:api-keys',
+    { anthropic: '', google: '' },
+    reviveApiKeys,
+  );
   const [showKey, setShowKey] = useState(false);
-  const [provider, setProvider] = useState<Provider>('google');
+  const [provider, setProvider] = useLocalStorage<Provider>('rcg:provider', 'google', reviveProvider);
+  const apiKey = apiKeys[provider];
+  const { history, addPrompt, clearHistory } = usePromptHistory();
   const [envKeys, setEnvKeys] = useState<Record<Provider, boolean>>({
     anthropic: false,
     google: false,
@@ -35,12 +56,12 @@ function App() {
       alert(`${PROVIDER_CONFIG[provider].label} API 키를 입력하거나 .env에 설정해주세요.`);
       return;
     }
+    addPrompt(prompt);
     generate(prompt, apiKey || undefined, provider);
   };
 
-  const handleProviderChange = (newProvider: Provider) => {
-    setProvider(newProvider);
-    setApiKey('');
+  const handleApiKeyChange = (value: string) => {
+    setApiKeys((prev) => ({ ...prev, [provider]: value }));
   };
 
   const activeProvider = PROVIDER_CONFIG[provider].label;
@@ -66,7 +87,12 @@ function App() {
 
       <main className="workspace">
         <section className="win composer-panel" aria-label="컴포넌트 생성">
-          <PromptInput onGenerate={handleGenerate} isLoading={isLoading} />
+          <PromptInput
+            onGenerate={handleGenerate}
+            isLoading={isLoading}
+            history={history}
+            onClearHistory={clearHistory}
+          />
         </section>
 
         <aside className="win settings-panel" aria-label="실행 설정">
@@ -79,7 +105,7 @@ function App() {
             <select
               id="provider"
               value={provider}
-              onChange={(e) => handleProviderChange(e.target.value as Provider)}
+              onChange={(e) => setProvider(e.target.value as Provider)}
             >
               {Object.entries(PROVIDER_CONFIG).map(([key, { label }]) => (
                 <option key={key} value={key}>
@@ -97,7 +123,7 @@ function App() {
                 id="api-key"
                 type={showKey ? 'text' : 'password'}
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                onChange={(e) => handleApiKeyChange(e.target.value)}
                 placeholder={
                   hasEnvKey
                     ? '서버 키 사용 중 (직접 입력으로 덮어쓰기 가능)'
