@@ -1,0 +1,48 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --desk-a: #3f9a95;
+  --desk-b: #368d89;
+  --ink: #14173a;
+}
+
+body {
+  min-height: 100vh;
+  font-family: 'Galmuri14', 'Galmuri11', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  background-color: var(--desk-a);
+  /* 2px 체커 디더링 데스크톱 */
+  background-image: conic-gradient(
+    var(--desk-b) 25%,
+    var(--desk-a) 0 50%,
+    var(--desk-b) 0 75%,
+    var(--desk-a) 0
+  );
+  background-size: 4px 4px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: #2b3fd1;
+  color: #ffffff;
+}
