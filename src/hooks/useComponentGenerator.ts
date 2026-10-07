@@ -1,5 +1,19 @@
 import { useState, useCallback } from 'react';
 import type { GeneratedComponent, Provider } from '../types';
+import { useLocalStorage } from './useLocalStorage';
+
+// JSON으로 저장되면 createdAt이 문자열이 되므로 Date로 복원하고, 형태가 맞지 않는 항목은 버린다.
+function reviveComponents(raw: unknown): GeneratedComponent[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item): GeneratedComponent[] => {
+    if (!item || typeof item !== 'object') return [];
+    const { id, prompt, code, createdAt } = item as Record<string, unknown>;
+    const date = new Date(createdAt as string);
+    if (typeof id !== 'string' || typeof prompt !== 'string' || typeof code !== 'string') return [];
+    if (Number.isNaN(date.getTime())) return [];
+    return [{ id, prompt, code, createdAt: date }];
+  });
+}
 
 interface UseComponentGeneratorReturn {
   components: GeneratedComponent[];
@@ -11,7 +25,11 @@ interface UseComponentGeneratorReturn {
 }
 
 export function useComponentGenerator(): UseComponentGeneratorReturn {
-  const [components, setComponents] = useState<GeneratedComponent[]>([]);
+  const [components, setComponents] = useLocalStorage<GeneratedComponent[]>(
+    'rcg:components',
+    [],
+    reviveComponents,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,15 +64,15 @@ export function useComponentGenerator(): UseComponentGeneratorReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [setComponents]);
 
   const removeComponent = useCallback((id: string) => {
     setComponents((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+  }, [setComponents]);
 
   const clearAll = useCallback(() => {
     setComponents([]);
-  }, []);
+  }, [setComponents]);
 
   return { components, isLoading, error, generate, removeComponent, clearAll };
 }
